@@ -1,36 +1,561 @@
-# This is a basic workflow to help you get started with Actions
+-- Shrink Hide & Seek Ultimate Hub v3.0 - Ultra Optimized 2026 Edition
+-- 🚀 Fully Client-Side | Anti-Lag | Auto-Cleanup | FPS Monitor | Keybinds
+-- Features: Advanced ESP (Name/Dist/HP/Tracers), Aimbot, Shrink/Grow, Fly (Smooth), NoClip, Speed/Jump, God Mode, Invis, Fullbright,
+-- Inf Jump, TP Nearest, Anti-AFK, Bring Player, Hide NameTag, Chams, Auto Farm (Client Visual), Seek Assist, Smart Hide Spots (Basic)
+-- Optimized: Single Heartbeat Loop | Connection Pooling | Debounce | Task Library | Memory Cleanup | FPS Adaptive
+-- GUI: Tabs (Hider/Seeker/Player/Visuals) | Draggable | Minimize | Themes | Made by zeroz560
+-- Use: Executor (Synapse/Krnl/Fluxus) | LocalScript | No Bans (Client-Only)
 
-name: CI
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local Lighting = game:GetService("Lighting")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
+local HttpService = game:GetService("HttpService")
+local Stats = game:GetService("Stats")
+local player = Players.LocalPlayer
+local camera = workspace.CurrentCamera
+local mouse = player:GetMouse()
 
-# Controls when the workflow will run
-on:
-  # Triggers the workflow on push or pull request events but only for the "main" branch
-  push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
+-- Cache Character
+local Character, Humanoid, RootPart
+local function UpdateCharacter()
+    Character = player.Character
+    if Character then
+        Humanoid = Character:WaitForChild("Humanoid", 5)
+        RootPart = Character:WaitForChild("HumanoidRootPart", 5)
+    end
+end
+player.CharacterAdded:Connect(UpdateCharacter)
+UpdateCharacter()
 
-  # Allows you to run this workflow manually from the Actions tab
-  workflow_dispatch:
+-- Flags & Values (BitFlags for speed? Nah, table fine)
+local Flags = {
+    -- Hider
+    Shrink = false, Grow = false, Invis = false, NoClip = false, Fly = false,
+    -- Seeker
+    ESP = false, Aimbot = false, TPNear = false, SeekAssist = false,
+    -- Player
+    God = false, InfJump = false, AntiAFK = false,
+    -- Visuals
+    Fullbright = false, Chams = false, HideName = false,
+}
+local Values = {
+    ShrinkSize = 0.01, WalkSpeed = 16, JumpPower = 50, FlySpeed = 50,
+    ESPDist = 1000, AimbotFOV = 200,
+}
+local UI = {Theme = "Dark", Minimized = false, Visible = true}
+local Debounce = {}
+local Connections = {} -- Pool for disconnect
+local ESPGuis = {} -- ESP cleanup
+local FlyObjects = nil
+local FPS = 60, LastTime = tick()
+local Ping = 0
 
-# A workflow run is made up of one or more jobs that can run sequentially or in parallel
-jobs:
-  # This workflow contains a single job called "build"
-  build:
-    # The type of runner that the job will run on
-    runs-on: ubuntu-latest
+-- Connection Manager (Optimized Cleanup)
+local function AddConnection(name, conn)
+    if Connections[name] then Connections[name]:Disconnect() end
+    Connections[name] = conn
+end
+local function DisconnectAll()
+    for _, conn in pairs(Connections) do
+        if conn then conn:Disconnect() end
+    end
+    Connections = {}
+    -- Cleanup ESP
+    for _, gui in pairs(ESPGuis) do gui:Destroy() end
+    ESPGuis = {}
+    -- Cleanup Fly
+    if FlyObjects then
+        FlyObjects.Velocity:Destroy()
+        FlyObjects.Gyro:Destroy()
+        FlyObjects = nil
+    end
+end
+game:BindToClose(DisconnectAll) -- Cleanup on leave
 
-    # Steps represent a sequence of tasks that will be executed as part of the job
-    steps:
-      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-      - uses: actions/checkout@v4
+-- FPS Calculator (Optimized)
+local FPSConn
+AddConnection("FPS", RunService.Heartbeat:Connect(function()
+    local delta = tick() - LastTime
+    FPS = 1 / delta
+    LastTime = tick()
+    Ping = Stats.Network.ServerStatsItem["Data Ping"]:GetValue()
+end))
 
-      # Runs a single command using the runners shell
-      - name: Run a one-line script
-        run: echo Hello, world!
+-- Main Optimized Loop (Single Heartbeat - ULTRA EFFICIENT)
+local MainLoop = RunService.Heartbeat:Connect(function()
+    if not Character or not RootPart or not Humanoid then return end
 
-      # Runs a set of commands using the runners shell
-      - name: Run a multi-line script
-        run: |
-          echo Add other actions to build,
-          echo test, and deploy your project.
+    -- FPS Adaptive: Disable heavy if <30 FPS
+    if FPS < 30 then
+        Flags.Fly = false
+        Flags.Aimbot = false
+        Flags.SeekAssist = false
+    end
+
+    -- Shrink/Grow Loop
+    if Flags.Shrink then
+        Humanoid.BodyHeightScale.Value = Values.ShrinkSize
+        Humanoid.BodyDepthScale.Value = Values.ShrinkSize
+        Humanoid.BodyWidthScale.Value = Values.ShrinkSize
+        Humanoid.HeadScale.Value = Values.ShrinkSize
+    end
+    if Flags.Grow then
+        Humanoid.BodyHeightScale.Value = 5
+        Humanoid.BodyDepthScale.Value = 5
+        Humanoid.BodyWidthScale.Value = 5
+        Humanoid.HeadScale.Value = 5
+    end
+
+    -- God Mode
+    if Flags.God then Humanoid.Health = Humanoid.MaxHealth end
+
+    -- Speed/Jump Auto-Apply
+    Humanoid.WalkSpeed = Values.WalkSpeed
+    Humanoid.JumpPower = Values.JumpPower
+
+    -- Fly (Smooth)
+    if Flags.Fly and RootPart then
+        if not FlyObjects then
+            FlyObjects = {
+                Velocity = Instance.new("BodyVelocity", RootPart),
+                Gyro = Instance.new("BodyGyro", RootPart)
+            }
+            FlyObjects.Velocity.MaxForce = Vector3.new(1e5, 1e5, 1e5)
+            FlyObjects.Gyro.MaxTorque = Vector3.new(1e5, 1e5, 1e5)
+        end
+        local move = Vector3.new(0,0,0)
+        local camCF = camera.CFrame
+        if UserInputService:IsKeyDown(Enum.KeyCode.W) then move = move + camCF.LookVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.S) then move = move - camCF.LookVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.A) then move = move - camCF.RightVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.D) then move = move + camCF.RightVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.Space) then move = move + Vector3.new(0,1,0) end
+        if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then move = move - Vector3.new(0,1,0) end
+        FlyObjects.Velocity.Velocity = move.Unit * Values.FlySpeed
+        FlyObjects.Gyro.CFrame = camCF
+    end
+
+    -- Aimbot + Seek Assist
+    if Flags.Aimbot or Flags.SeekAssist then
+        local nearest, dist = nil, math.huge
+        for _, p in pairs(Players:GetPlayers()) do
+            if p ~= player and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+                local d = (p.Character.HumanoidRootPart.Position - RootPart.Position).Magnitude
+                if d < Values.ESPDist and d < dist then
+                    dist = d
+                    nearest = p
+                end
+            end
+        end
+        if nearest and nearest.Character and nearest.Character:FindFirstChild("Head") then
+            camera.CFrame = CFrame.lookAt(camera.CFrame.Position, nearest.Character.Head.Position)
+            if Flags.SeekAssist and dist < 10 then
+                -- Simulate tag (mouse click)
+                mouse1click()
+                task.wait(0.1)
+            end
+        end
+    end
+
+    -- NoClip (Stepped better, but here for single loop)
+    if Flags.NoClip then
+        for _, part in pairs(Character:GetDescendants()) do
+            if part:IsA("BasePart") then part.CanCollide = false end
+        end
+    end
+
+    -- Anti-AFK
+    if Flags.AntiAFK then
+        VirtualUser:CaptureController()
+        VirtualUser:ClickButton2(Vector2.new())
+    end
+end)
+
+-- NoClip Stepped (Separate for precision)
+local NoClipConn
+local function ToggleNoClip(state)
+    Flags.NoClip = state
+    if state then
+        NoClipConn = RunService.Stepped:Connect(function()
+            if Character then
+                for _, part in pairs(Character:GetDescendants()) do
+                    if part:IsA("BasePart") and part.CanCollide then part.CanCollide = false end
+                end
+            end
+        end)
+        AddConnection("NoClip", NoClipConn)
+    else
+        if NoClipConn then NoClipConn:Disconnect() end
+    end
+end
+
+-- Inf Jump
+local InfJumpConn
+local function ToggleInfJump(state)
+    Flags.InfJump = state
+    if state then
+        InfJumpConn = UserInputService.JumpRequest:Connect(function() 
+            if Humanoid then Humanoid:ChangeState(Enum.HumanoidStateType.Jumping) end
+        end)
+        AddConnection("InfJump", InfJumpConn)
+    else
+        if InfJumpConn then InfJumpConn:Disconnect() end
+    end
+end
+
+-- Advanced ESP (Billboard + Tracer + Dist/HP)
+local function CreateESP(target)
+    local gui = Instance.new("BillboardGui")
+    gui.Name = "ESP"
+    gui.Parent = target:FindFirstChild("Head") or target
+    gui.Size = UDim2.new(0, 200, 0, 100)
+    gui.StudsOffset = Vector3.new(0, 3, 0)
+    gui.AlwaysOnTop = true
+
+    local NameLabel = Instance.new("TextLabel", gui)
+    NameLabel.Size = UDim2.new(1, 0, 0.3, 0)
+    NameLabel.BackgroundTransparency = 1
+    NameLabel.Text = target.Parent.Name
+    NameLabel.TextColor3 = Color3.new(1,1,1)
+    NameLabel.TextScaled = true
+    NameLabel.Font = Enum.Font.GothamBold
+
+    local DistLabel = Instance.new("TextLabel", gui)
+    DistLabel.Size = UDim2.new(1, 0, 0.3, 0)
+    DistLabel.Position = UDim2.new(0,0,0.3,0)
+    DistLabel.BackgroundTransparency = 1
+    DistLabel.Text = "Dist: --"
+    DistLabel.TextColor3 = Color3.new(0,1,0)
+    DistLabel.TextScaled = true
+
+    local HPBarFrame = Instance.new("Frame", gui)
+    HPBarFrame.Size = UDim2.new(1, 0, 0.3, 0)
+    HPBarFrame.Position = UDim2.new(0,0,0.6,0)
+    HPBarFrame.BackgroundColor3 = Color3.new(0,0,0)
+    local HPBar = Instance.new("Frame", HPBarFrame)
+    HPBar.Size = UDim2.new(1, 0, 1, 0)
+    HPBar.BackgroundColor3 = Color3.new(0,1,0)
+    HPBar.BorderSizePixel = 0
+
+    local UICorner = Instance.new("UICorner", HPBarFrame)
+    UICorner.CornerRadius = UDim.new(0,4)
+
+    -- Tracer Line
+    local Tracer = Drawing.new("Line")
+    Tracer.Color = Color3.new(1,0,0)
+    Tracer.Thickness = 2
+    Tracer.Transparency = 1
+
+    ESPGuis[target.Parent] = {Gui = gui, Tracer = Tracer, HPBar = HPBar, DistLabel = DistLabel}
+
+    -- Update Loop (Per-player efficient)
+    AddConnection("ESP_" .. target.Parent.Name, RunService.RenderStepped:Connect(function()
+        if not target.Parent or not target.Parent.Parent or Flags.ESP == false then
+            gui:Destroy()
+            Tracer:Remove()
+            return
+        end
+        local hum = target.Parent:FindFirstChild("Humanoid")
+        if hum then
+            local dist = (RootPart.Position - target.Position).Magnitude
+            DistLabel.Text = "Dist: " .. math.floor(dist)
+            HPBar.Size = UDim2.new(hum.Health / hum.MaxHealth, 0, 1, 0)
+            HPBar.BackgroundColor3 = Color3.fromHSV(hum.Health / hum.MaxHealth / 3, 1, 1)
+        end
+
+        -- Tracer
+        local pos, onScreen = camera:WorldToViewportPoint(target.Position)
+        if onScreen then
+            local screenPos = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2)
+            Tracer.From = screenPos
+            Tracer.To = Vector2.new(pos.X, pos.Y)
+            Tracer.Visible = true
+        else
+            Tracer.Visible = false
+        end
+    end))
+end
+
+local function ToggleESP(state)
+    Flags.ESP = state
+    if state then
+        for _, p in pairs(Players:GetPlayers()) do
+            if p ~= player and p.Character and p.Character:FindFirstChild("Head") then
+                CreateESP(p.Character.Head)
+            end
+        end
+        -- New players
+        Players.PlayerAdded:Connect(function(p)
+            p.CharacterAdded:Connect(function()
+                task.wait(1)
+                if p.Character:FindFirstChild("Head") then CreateESP(p.Character.Head) end
+            end)
+        end)
+    else
+        for _, data in pairs(ESPGuis) do
+            if data.Gui then data.Gui:Destroy() end
+            if data.Tracer then data.Tracer:Remove() end
+        end
+        ESPGuis = {}
+        DisconnectAll() -- Cleanup ESP conns
+    end
+end
+
+-- Chams (Outline + Material)
+local function ToggleChams(state)
+    Flags.Chams = state
+    for _, p in pairs(Players:GetPlayers()) do
+        if p ~= player and p.Character then
+            for _, part in pairs(p.Character:GetChildren()) do
+                if part:IsA("BasePart") then
+                    part.Material = state and Enum.Material.ForceField or Enum.Material.Plastic
+                    local outline = part:FindFirstChild("ChamsOutline")
+                    if state then
+                        if not outline then
+                            outline = Instance.new("SelectionBox", part)
+                            outline.Name = "ChamsOutline"
+                            outline.Adornee = part
+                            outline.Color3 = Color3.new(1,0,0)
+                            outline.Transparency = 0
+                            outline.SurfaceTransparency = 0.5
+                        end
+                    else
+                        if outline then outline:Destroy() end
+                    end
+                end
+            end
+        end
+    end
+end
+
+-- Invis (Full)
+local function ToggleInvis(state)
+    Flags.Invis = state
+    if Character then
+        for _, part in pairs(Character:GetChildren()) do
+            if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+                part.Transparency = state and 1 or 0
+            elseif part:IsA("Accessory") then
+                pcall(function() part.Handle.Transparency = state and 1 or 0 end)
+            end
+        end
+        local face = Character.Head:FindFirstChild("face")
+        if face then face.Transparency = state and 1 or 0 end
+    end
+end
+
+-- Hide NameTag
+local function ToggleHideName(state)
+    Flags.HideName = state
+    if Character then
+        local billboard = Character:FindFirstChild("Head"):FindFirstChild("BillboardGui")
+        if billboard then billboard.Enabled = not state end
+    end
+end
+
+-- Fullbright
+local function ToggleFullbright(state)
+    Flags.Fullbright = state
+    if state then
+        local old = {
+            Brightness = Lighting.Brightness,
+            ClockTime = Lighting.ClockTime,
+            FogEnd = Lighting.FogEnd,
+            GlobalShadows = Lighting.GlobalShadows,
+            Ambient = Lighting.Ambient
+        }
+        Lighting.Brightness = 2
+        Lighting.ClockTime = 14
+        Lighting.FogEnd = 9e9
+        Lighting.GlobalShadows = false
+        Lighting.Ambient = Color3.new(1,1,1)
+        -- Store old for restore
+    else
+        -- Restore (simplified)
+        Lighting.Brightness = 1
+        Lighting.ClockTime = 12
+        Lighting.FogEnd = 1e5
+        Lighting.GlobalShadows = true
+        Lighting.Ambient = Color3.new(0.5,0.5,0.5)
+    end
+end
+
+-- TP Nearest / Bring
+local function TPNear()
+    local nearest, dist = nil, math.huge
+    for _, p in pairs(Players:GetPlayers()) do
+        if p ~= player and p.Character and p.Character.HumanoidRootPart then
+            local d = (p.Character.HumanoidRootPart.Position - RootPart.Position).Magnitude
+            if d < dist then dist = d; nearest = p.Character.HumanoidRootPart end
+        end
+    end
+    if nearest then RootPart.CFrame = nearest.CFrame * CFrame.new(0,0,-5) end
+end
+
+local function BringNearest()
+    local nearest = nil
+    -- Similar loop, TP them to you
+    local nearest, _ = nil, math.huge
+    for _, p in pairs(Players:GetPlayers()) do
+        if p ~= player and p.Character and p.Character.HumanoidRootPart then
+            local d = (p.Character.HumanoidRootPart.Position - RootPart.Position).Magnitude
+            if d < dist then dist = d; nearest = p.Character.HumanoidRootPart end
+        end
+    end
+    if nearest then nearest.CFrame = RootPart.CFrame * CFrame.new(0,0,5) end
+end
+
+-- Smart Hide (Basic: TP to random high/low spot)
+local function SmartHide()
+    local spots = { -- Dummy spots, adapt per map
+        Vector3.new(0,100,0), Vector3.new(0,-100,0), -- etc
+    }
+    if RootPart and #spots > 0 then
+        RootPart.CFrame = CFrame.new(spots[math.random(1,#spots)])
+    end
+end
+
+-- GUI Creation (Modern Tabbed UI - Longer & Fancy)
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "ShrinkHubV3"
+ScreenGui.Parent = game.CoreGui
+ScreenGui.ResetOnSpawn = false
+ScreenGui.DisplayOrder = 999
+
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "Main"
+MainFrame.Parent = ScreenGui
+MainFrame.BackgroundColor3 = Color3.fromRGB(20,20,30)
+MainFrame.BorderSizePixel = 0
+MainFrame.Position = UDim2.new(0.02,0,0.1,0)
+MainFrame.Size = UDim2.new(0,500,0,450)
+MainFrame.Active = true
+MainFrame.Draggable = true
+
+local Corner = Instance.new("UICorner")
+Corner.CornerRadius = UDim.new(0,12)
+Corner.Parent = MainFrame
+
+local Stroke = Instance.new("UIStroke")
+Stroke.Color = Color3.fromRGB(60,60,90)
+Stroke.Thickness = 2
+Stroke.Parent = MainFrame
+
+local Gradient = Instance.new("UIGradient")
+Gradient.Color = ColorSequence.new{
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(30,30,45)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(15,15,25))
+}
+Gradient.Rotation = 45
+Gradient.Parent = MainFrame
+
+-- Title Bar
+local TitleBar = Instance.new("Frame")
+TitleBar.Name = "TitleBar"
+TitleBar.Parent = MainFrame
+TitleBar.BackgroundColor3 = Color3.fromRGB(10,10,20)
+TitleBar.Size = UDim2.new(1,0,0,50)
+TitleBar.BorderSizePixel = 0
+
+local TitleCorner = Instance.new("UICorner")
+TitleCorner.CornerRadius = UDim.new(0,12)
+TitleCorner.Parent = TitleBar
+
+local TitleLabel = Instance.new("TextLabel")
+TitleLabel.Parent = TitleBar
+TitleLabel.BackgroundTransparency = 1
+TitleLabel.Position = UDim2.new(0,15,0,0)
+TitleLabel.Size = UDim2.new(0.6,0,1,0)
+TitleLabel.Font = Enum.Font.GothamBold
+TitleLabel.Text = "Shrink Hide & Seek Ultimate Hub v3.0\nMade by zeroz560"
+TitleLabel.TextColor3 = Color3.new(255,200,0)
+TitleLabel.TextSize = 16
+TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+TitleLabel.TextYAlignment = Enum.TextYAlignment.Middle
+
+-- Status (FPS/Ping)
+local StatusLabel = Instance.new("TextLabel")
+StatusLabel.Parent = TitleBar
+StatusLabel.BackgroundTransparency = 1
+StatusLabel.Position = UDim2.new(0.7,0,0,0)
+StatusLabel.Size = UDim2.new(0.3,0,1,0)
+StatusLabel.Font = Enum.Font.Gotham
+StatusLabel.Text = "FPS: 60 | Ping: 0ms"
+StatusLabel.TextColor3 = Color3.new(0,255,0)
+StatusLabel.TextSize = 14
+StatusLabel.TextXAlignment = Enum.TextXAlignment.Right
+
+-- Buttons: Minimize, Close
+local MinBtn = Instance.new("TextButton")
+MinBtn.Parent = TitleBar
+MinBtn.Position = UDim2.new(1,-40,0,10)
+MinBtn.Size = UDim2.new(0,25,0,25)
+MinBtn.BackgroundColor3 = Color3.fromRGB(255,100,100)
+MinBtn.Text = "-"
+MinBtn.TextColor3 = Color3.white
+MinBtn.Font = Enum.Font.GothamBold
+MinBtn.TextScaled = true
+local MinCorner = Instance.new("UICorner", MinBtn); MinCorner.CornerRadius = UDim.new(0,5)
+
+local CloseBtn = Instance.new("TextButton")
+CloseBtn.Parent = TitleBar
+CloseBtn.Position = UDim2.new(1,-10,0,10)
+CloseBtn.Size = UDim2.new(0,25,0,25)
+CloseBtn.BackgroundColor3 = Color3.fromRGB(200,50,50)
+CloseBtn.Text = "X"
+CloseBtn.TextColor3 = Color3.white
+CloseBtn.Font = Enum.Font.GothamBold
+CloseBtn.TextScaled = true
+local CloseCorner = Instance.new("UICorner", CloseBtn); CloseCorner.CornerRadius = UDim.new(0,5)
+
+-- Tab System
+local TabFrame = Instance.new("Frame")
+TabFrame.Parent = MainFrame
+TabFrame.BackgroundTransparency = 1
+TabFrame.Position = UDim2.new(0,0,0,50)
+TabFrame.Size = UDim2.new(1,0,0,40)
+
+local TabLayout = Instance.new("UIListLayout")
+TabLayout.FillDirection = Enum.FillDirection.Horizontal
+TabLayout.Padding = UDim.new(0,5)
+TabLayout.Parent = TabFrame
+
+local Tabs = {"Hider", "Seeker", "Player", "Visuals"}
+local TabContents = {}
+
+for i, tabName in ipairs(Tabs) do
+    local TabBtn = Instance.new("TextButton")
+    TabBtn.Name = tabName .. "Tab"
+    TabBtn.Parent = TabFrame
+    TabBtn.BackgroundColor3 = Color3.fromRGB(40,40,60)
+    TabBtn.Size = UDim2.new(1/#Tabs, -10,1,0)
+    TabBtn.Text = tabName
+    TabBtn.TextColor3 = Color3.white
+    TabBtn.Font = Enum.Font.GothamSemibold
+    TabBtn.TextScaled = true
+    local TabCorner = Instance.new("UICorner", TabBtn); TabCorner.CornerRadius = UDim.new(0,8)
+
+    -- Content Frame
+    local Content = Instance.new("ScrollingFrame")
+    Content.Name = tabName .. "Content"
+    Content.Parent = MainFrame
+    Content.BackgroundTransparency = 1
+    Content.BorderSizePixel = 0
+    Content.Position = UDim2.new(0,10,0,95)
+    Content.Size = UDim2.new(1,-20,1,-105)
+    Content.ScrollBarThickness = 8
+    Content.ScrollBarImageColor3 = Color3.fromRGB(80,80,100)
+    Content.Visible = (i == 1)
+    Content.CanvasSize = UDim2.new(0,0,0,0)
+    TabContents[tabName] = Content
+
+    local ListLayout = Instance.new("UIListLayout")
+    ListLayout.Padding = UDim.new(0,8)
+    ListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    ListLayout.Parent = Content
+
+    TabBtn.Mouse
