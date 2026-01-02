@@ -1,36 +1,494 @@
-# This is a basic workflow to help you get started with Actions
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local StarterGui = game:GetService("StarterGui")
+local TweenService = game:GetService("TweenService")
+local TextChatService = game:GetService("TextChatService")
 
-name: CI
+local LocalPlayer = Players.LocalPlayer
+local Mouse = LocalPlayer:GetMouse()
 
-# Controls when the workflow will run
-on:
-  # Triggers the workflow on push or pull request events but only for the "main" branch
-  push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
+local ScreenGui = Instance.new("ScreenGui")
+local MainFrame = Instance.new("Frame")
+local TitleLabel = Instance.new("TextLabel")
+local OpenCloseButton = Instance.new("TextButton")
+local AutoBlockButton = Instance.new("TextButton")
+local CounterNotifierButton = Instance.new("TextButton")
+local UnusedButton = Instance.new("TextButton")
+local SettingsButton = Instance.new("ImageButton")
+local SettingsFrame = Instance.new("Frame")
+local CloseRangeTextBox = Instance.new("TextBox")
+local LongRangeTextBox = Instance.new("TextBox")
+local NotifierRangeTextBox = Instance.new("TextBox")
+local UICorner = Instance.new("UICorner")
+local AutoBlockLabel = Instance.new("TextLabel")
+local CounterNotifierLabel = Instance.new("TextLabel")
+local DefaultSettingsButton = Instance.new("TextButton")
 
-  # Allows you to run this workflow manually from the Actions tab
-  workflow_dispatch:
+task.wait(0.9)
 
-# A workflow run is made up of one or more jobs that can run sequentially or in parallel
-jobs:
-  # This workflow contains a single job called "build"
-  build:
-    # The type of runner that the job will run on
-    runs-on: ubuntu-latest
+StarterGui:SetCore("SendNotification", {
+    Title = "Note",
+    Text = "Remember to setup the script before using (or default setup)",
+    Duration = 3
+})
 
-    # Steps represent a sequence of tasks that will be executed as part of the job
-    steps:
-      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-      - uses: actions/checkout@v4
+local CamlockEnabled = false
+local CamlockPrediction = 0.16
+local CamlockToggle = true
+local CamlockTarget = nil
+local CamlockKey = "c"
 
-      # Runs a single command using the runners shell
-      - name: Run a one-line script
-        run: echo Hello, world!
+getgenv().Key = CamlockKey
 
-      # Runs a set of commands using the runners shell
-      - name: Run a multi-line script
-        run: |
-          echo Add other actions to build,
-          echo test, and deploy your project.
+local function FindNearestEnemy()
+    local closestDistance = math.huge
+    local screenCenter = Vector2.new(
+        game:GetService("GuiService"):GetScreenResolution().X / 2,
+        game:GetService("GuiService"):GetScreenResolution().Y / 2
+    )
+    local nearestTarget = nil
+
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer then
+            local character = player.Character
+            if character and character:FindFirstChild("HumanoidRootPart") and character.Humanoid.Health > 0 then
+                local screenPosition, onScreen = workspace.CurrentCamera:WorldToViewportPoint(character.HumanoidRootPart.Position)
+                if onScreen then
+                    local distance = (screenCenter - Vector2.new(screenPosition.X, screenPosition.Y)).Magnitude
+                    if distance < closestDistance then
+                        nearestTarget = character.HumanoidRootPart
+                        closestDistance = distance
+                    end
+                end
+            end
+        end
+    end
+
+    local liveFolder = workspace:FindFirstChild("Live")
+    if liveFolder then
+        local dummy = liveFolder:FindFirstChild("Weakest Dummy")
+        if dummy and dummy:FindFirstChild("HumanoidRootPart") then
+            local screenPosition, onScreen = workspace.CurrentCamera:WorldToViewportPoint(dummy.HumanoidRootPart.Position)
+            if onScreen and (screenCenter - Vector2.new(screenPosition.X, screenPosition.Y)).Magnitude < closestDistance then
+                nearestTarget = dummy.HumanoidRootPart
+            end
+        end
+    end
+
+    return nearestTarget
+end
+
+local function HandleCamlockCallback(response)
+    if response == "Yes" then
+        RunService.Heartbeat:Connect(function()
+            if CamlockEnabled and CamlockTarget then
+                local camera = workspace.CurrentCamera
+                camera.CFrame = CFrame.new(camera.CFrame.Position, CamlockTarget.Position + CamlockTarget.Velocity * CamlockPrediction)
+            end
+        end)
+
+        Mouse.KeyDown:Connect(function(key)
+            if key == getgenv().Key then
+                CamlockToggle = not CamlockToggle
+                if CamlockToggle then
+                    CamlockTarget = FindNearestEnemy()
+                    CamlockEnabled = true
+                elseif CamlockTarget ~= nil then
+                    CamlockTarget = nil
+                    CamlockEnabled = false
+                end
+            end
+        end)
+
+        local CamlockGui = Instance.new("ScreenGui")
+        CamlockGui.Name = "RandomParentName"
+        CamlockGui.Parent = game.CoreGui
+
+        local CamlockFrame = Instance.new("Frame")
+        local CamlockCorner = Instance.new("UICorner")
+        local CamlockButton = Instance.new("TextButton")
+
+        CamlockFrame.Parent = CamlockGui
+        CamlockFrame.BackgroundColor3 = Color3.fromRGB(43, 43, 43)
+        CamlockFrame.BorderSizePixel = 0
+        CamlockFrame.Position = UDim2.new(0.133798108, 0, 0.20107238, 0)
+        CamlockFrame.Size = UDim2.new(0, 132, 0, 60)
+        CamlockFrame.Active = true
+        CamlockFrame.Draggable = true
+
+        local function CenterCamlockFrame()
+            CamlockFrame.Position = UDim2.new(0.63, -CamlockFrame.AbsoluteSize.X / 2, 0.2, -CamlockFrame.AbsoluteSize.Y / 2)
+        end
+        CenterCamlockFrame()
+        CamlockFrame:GetPropertyChangedSignal("AbsoluteSize"):Connect(CenterCamlockFrame)
+
+        CamlockCorner.Parent = CamlockFrame
+
+        CamlockButton.Parent = CamlockFrame
+        CamlockButton.BackgroundColor3 = Color3.fromRGB(43, 43, 43)
+        CamlockButton.BackgroundTransparency = 5
+        CamlockButton.BorderSizePixel = 0
+        CamlockButton.Position = UDim2.new(0.13, 0, 0.21971429, 0)
+        CamlockButton.Size = UDim2.new(0, 100, 0, 32)
+        CamlockButton.Font = Enum.Font.GothamBold
+        CamlockButton.Text = "Press to enable Camlock"
+        CamlockButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+        CamlockButton.TextScaled = true
+        CamlockButton.TextWrapped = true
+
+        local CamlockState = true
+        CamlockButton.MouseButton1Click:Connect(function()
+            CamlockState = not CamlockState
+            if CamlockState then
+                CamlockButton.Text = "Camlock Disabled"
+                CamlockEnabled = false
+                CamlockTarget = nil
+            else
+                CamlockButton.Text = "Camlock Enabled"
+                CamlockEnabled = true
+                CamlockTarget = FindNearestEnemy()
+            end
+        end)
+
+        StarterGui:SetCore("SendNotification", {
+            Title = "Made by notpaki",
+            Text = "Thanks for using Combat Gui",
+            Duration = 2.6
+        })
+    end
+end
+
+local CamlockBindable = Instance.new("BindableFunction")
+CamlockBindable.OnInvoke = HandleCamlockCallback
+
+StarterGui:SetCore("SendNotification", {
+    Title = "Hey",
+    Text = "Do you want to execute Camlock script?",
+    Duration = 85,
+    Button1 = "Yes",
+    Button2 = "No",
+    Callback = CamlockBindable
+})
+
+ScreenGui.Name = "AutoBlock"
+ScreenGui.Parent = game.CoreGui
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+MainFrame.Name = "MainFrame"
+MainFrame.Parent = ScreenGui
+MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+MainFrame.BorderSizePixel = 0
+MainFrame.Position = UDim2.new(0, 15, 0, 100)
+MainFrame.Size = UDim2.new(0, 250, 0, 140)
+MainFrame.Active = true
+MainFrame.Draggable = true
+
+UICorner.CornerRadius = UDim.new(0, 10)
+UICorner.Parent = MainFrame
+
+TitleLabel.Name = "Title"
+TitleLabel.Parent = MainFrame
+TitleLabel.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+TitleLabel.BorderSizePixel = 0
+TitleLabel.Size = UDim2.new(1, 0, 0, 35)
+TitleLabel.Font = Enum.Font.GothamBold
+TitleLabel.Text = "TSB | Combat Gui"
+TitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+TitleLabel.TextSize = 17
+UICorner:Clone().Parent = TitleLabel
+
+OpenCloseButton.Name = "OpenCloseButton"
+OpenCloseButton.Parent = TitleLabel
+OpenCloseButton.BackgroundColor3 = Color3.fromRGB(45, 45, 50)
+OpenCloseButton.BorderSizePixel = 0
+OpenCloseButton.Position = UDim2.new(1, -31.5, 0.005, 0)
+OpenCloseButton.Size = UDim2.new(0, 30.6, 0.955, 0)
+OpenCloseButton.Font = Enum.Font.GothamBold
+OpenCloseButton.Text = "-"
+OpenCloseButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+OpenCloseButton.TextSize = 19
+UICorner:Clone().Parent = OpenCloseButton
+
+AutoBlockLabel.Name = "text"
+AutoBlockLabel.Parent = MainFrame
+AutoBlockLabel.Text = "Auto Block"
+AutoBlockLabel.TextSize = 18
+AutoBlockLabel.Position = UDim2.new(0.5, 0, 0.6, -40)
+AutoBlockLabel.TextColor3 = Color3.fromRGB(80, 80, 80)
+AutoBlockLabel.Font = Enum.Font.Gotham
+
+CounterNotifierLabel.Name = "text2"
+CounterNotifierLabel.Parent = MainFrame
+CounterNotifierLabel.Text = "Counter Notifier"
+CounterNotifierLabel.TextSize = 18
+CounterNotifierLabel.Position = UDim2.new(0.5, 0, 0.6, 10)
+CounterNotifierLabel.TextColor3 = Color3.fromRGB(80, 80, 80)
+CounterNotifierLabel.Font = Enum.Font.Gotham
+
+AutoBlockButton.Name = "EnableButton"
+AutoBlockButton.Parent = MainFrame
+AutoBlockButton.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+AutoBlockButton.BorderSizePixel = 0
+AutoBlockButton.Position = UDim2.new(0.14, 0, 0.6, -30)
+AutoBlockButton.Size = UDim2.new(0.7, 0, 0, 33)
+AutoBlockButton.Font = Enum.Font.GothamBold
+AutoBlockButton.Text = "Press to enable Auto Block"
+AutoBlockButton.TextColor3 = Color3.fromRGB(250, 250, 250)
+AutoBlockButton.TextScaled = true
+UICorner:Clone().Parent = AutoBlockButton
+
+CounterNotifierButton.Name = "EnableButton2"
+CounterNotifierButton.Parent = MainFrame
+CounterNotifierButton.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+CounterNotifierButton.BorderSizePixel = 0
+CounterNotifierButton.Position = UDim2.new(0.14, 0, 0.6, 20)
+CounterNotifierButton.Size = UDim2.new(0.7, 0, 0, 33)
+CounterNotifierButton.Font = Enum.Font.GothamBold
+CounterNotifierButton.Text = "Press to enable Counter Notifier"
+CounterNotifierButton.TextColor3 = Color3.fromRGB(250, 250, 250)
+CounterNotifierButton.TextScaled = true
+UICorner:Clone().Parent = CounterNotifierButton
+
+SettingsButton.Name = "SettingsButton"
+SettingsButton.Parent = MainFrame
+SettingsButton.BackgroundTransparency = 1
+SettingsButton.Position = UDim2.new(1, -25, 0.8, 0)
+SettingsButton.Size = UDim2.new(0, 21, 0, 21)
+SettingsButton.Image = "rbxassetid://10734950309"
+
+SettingsFrame.Name = "SettingsFrame"
+SettingsFrame.Parent = MainFrame
+SettingsFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+SettingsFrame.BorderSizePixel = 0
+SettingsFrame.Position = UDim2.new(1, 5, 0, 126)
+SettingsFrame.Size = UDim2.new(0, 0, 0, 0)
+SettingsFrame.Visible = false
+UICorner:Clone().Parent = SettingsFrame
+
+local MainFeaturesButton = Instance.new("ImageButton")
+MainFeaturesButton.Name = "NewButton"
+MainFeaturesButton.Parent = MainFrame
+MainFeaturesButton.BackgroundTransparency = 1
+MainFeaturesButton.Position = UDim2.new(1, -26, 0.6, 0)
+MainFeaturesButton.Size = UDim2.new(0, 21, 0, 21)
+MainFeaturesButton.Image = "rbxassetid://10734943448"
+
+local MainFeaturesFrame = Instance.new("Frame")
+MainFeaturesFrame.Name = "NewFrame"
+MainFeaturesFrame.Parent = MainFrame
+MainFeaturesFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+MainFeaturesFrame.BorderSizePixel = 0
+MainFeaturesFrame.Position = UDim2.new(1, 5, 0, 90)
+MainFeaturesFrame.Size = UDim2.new(0, 0, 0, 0)
+MainFeaturesFrame.Visible = false
+UICorner:Clone().Parent = MainFeaturesFrame
+
+local MainFeaturesLabel = Instance.new("TextLabel")
+MainFeaturesLabel.Name = "NL"
+MainFeaturesLabel.Parent = MainFeaturesFrame
+MainFeaturesLabel.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+MainFeaturesLabel.BorderSizePixel = 0
+MainFeaturesLabel.Position = UDim2.new(0.81, 0, 0.05, 0)
+MainFeaturesLabel.Size = UDim2.new(0.01, 0, 0, 1)
+MainFeaturesLabel.Font = Enum.Font.Gotham
+MainFeaturesLabel.Text = "Main features"
+MainFeaturesLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+MainFeaturesLabel.TextSize = 12
+
+local OtherFeaturesButton = Instance.new("ImageButton")
+OtherFeaturesButton.Name = "NewButton1"
+OtherFeaturesButton.Parent = MainFrame
+OtherFeaturesButton.BackgroundTransparency = 1
+OtherFeaturesButton.Position = UDim2.new(1, -26, 0.4, 0)
+OtherFeaturesButton.Size = UDim2.new(0, 21, 0, 21)
+OtherFeaturesButton.Image = "rbxassetid://10709818399"
+
+local OtherFeaturesFrame = Instance.new("Frame")
+OtherFeaturesFrame.Name = "NewFrame1"
+OtherFeaturesFrame.Parent = MainFrame
+OtherFeaturesFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+OtherFeaturesFrame.BorderSizePixel = 0
+OtherFeaturesFrame.Position = UDim2.new(1, 5, 0, 62)
+OtherFeaturesFrame.Size = UDim2.new(0, 0, 0, 0)
+OtherFeaturesFrame.Visible = false
+UICorner:Clone().Parent = OtherFeaturesFrame
+
+local OtherFeaturesLabel = Instance.new("TextLabel")
+OtherFeaturesLabel.Name = "NL1"
+OtherFeaturesLabel.Parent = OtherFeaturesFrame
+OtherFeaturesLabel.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+OtherFeaturesLabel.BorderSizePixel = 0
+OtherFeaturesLabel.Position = UDim2.new(0.5, 0, 0.08, 0)
+OtherFeaturesLabel.Size = UDim2.new(0.01, 0, 0, 1)
+OtherFeaturesLabel.Font = Enum.Font.Gotham
+OtherFeaturesLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+OtherFeaturesLabel.TextSize = 14
+
+CloseRangeTextBox.Name = "TextBox1"
+CloseRangeTextBox.Parent = SettingsFrame
+CloseRangeTextBox.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+CloseRangeTextBox.BorderSizePixel = 0
+CloseRangeTextBox.Position = UDim2.new(0.05, 0, 0.06, 0)
+CloseRangeTextBox.Size = UDim2.new(0.9, 0, 0, 25)
+CloseRangeTextBox.Font = Enum.Font.Gotham
+CloseRangeTextBox.PlaceholderText = "Auto Block (Close range moves)"
+CloseRangeTextBox.Text = ""
+CloseRangeTextBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+CloseRangeTextBox.TextScaled = true
+UICorner:Clone().Parent = CloseRangeTextBox
+
+LongRangeTextBox.Name = "TextBox2"
+LongRangeTextBox.Parent = SettingsFrame
+LongRangeTextBox.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+LongRangeTextBox.BorderSizePixel = 0
+LongRangeTextBox.Position = UDim2.new(0.05, 0, 0.31, 0)
+LongRangeTextBox.Size = UDim2.new(0.9, 0, 0, 25)
+LongRangeTextBox.Font = Enum.Font.Gotham
+LongRangeTextBox.PlaceholderText = "Auto Block (Long range moves)"
+LongRangeTextBox.Text = ""
+LongRangeTextBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+LongRangeTextBox.TextScaled = true
+UICorner:Clone().Parent = LongRangeTextBox
+
+NotifierRangeTextBox.Name = "TextBox3"
+NotifierRangeTextBox.Parent = SettingsFrame
+NotifierRangeTextBox.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+NotifierRangeTextBox.BorderSizePixel = 0
+NotifierRangeTextBox.Position = UDim2.new(0.05, 0, 0.56, 0)
+NotifierRangeTextBox.Size = UDim2.new(0.9, 0, 0, 25)
+NotifierRangeTextBox.Font = Enum.Font.Gotham
+NotifierRangeTextBox.PlaceholderText = "Counter Notifier range"
+NotifierRangeTextBox.Text = ""
+NotifierRangeTextBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+NotifierRangeTextBox.TextScaled = true
+UICorner:Clone().Parent = NotifierRangeTextBox
+
+DefaultSettingsButton.Name = "sb"
+DefaultSettingsButton.Parent = SettingsFrame
+DefaultSettingsButton.BackgroundColor3 = Color3.fromRGB(48, 48, 48)
+DefaultSettingsButton.BorderSizePixel = 0
+DefaultSettingsButton.Position = UDim2.new(0.237, 0, 0.81, 0)
+DefaultSettingsButton.Size = UDim2.new(0.5, 0, 0, 25)
+DefaultSettingsButton.Font = Enum.Font.Gotham
+DefaultSettingsButton.Text = "Setup default settings"
+DefaultSettingsButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+DefaultSettingsButton.TextSize = 14
+DefaultSettingsButton.TextScaled = true
+UICorner:Clone().Parent = DefaultSettingsButton
+
+local M1AfterBlockToggle = Instance.new("TextButton")
+M1AfterBlockToggle.Name = "ToggleButton"
+M1AfterBlockToggle.Parent = MainFeaturesFrame
+M1AfterBlockToggle.BackgroundColor3 = Color3.fromRGB(48, 48, 48)
+M1AfterBlockToggle.BorderSizePixel = 0
+M1AfterBlockToggle.Position = UDim2.new(0.12, 0, 0.45, 0)
+M1AfterBlockToggle.Size = UDim2.new(0.075, 0, 0, 23)
+M1AfterBlockToggle.Text = ""
+UICorner:Clone().Parent = M1AfterBlockToggle
+
+local M1AfterBlockLabel = Instance.new("TextLabel")
+M1AfterBlockLabel.Name = "Label"
+M1AfterBlockLabel.Parent = MainFeaturesFrame
+M1AfterBlockLabel.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+M1AfterBlockLabel.BorderSizePixel = 0
+M1AfterBlockLabel.Position = UDim2.new(0.155, 0, 0.38, 0)
+M1AfterBlockLabel.Size = UDim2.new(0.01, 0, 0, 1)
+M1AfterBlockLabel.Font = Enum.Font.Gotham
+M1AfterBlockLabel.Text = "M1 after blocking"
+M1AfterBlockLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+M1AfterBlockLabel.TextSize = 9
+
+local CounterBaitToggle = Instance.new("TextButton")
+CounterBaitToggle.Name = "ToggleButton"
+CounterBaitToggle.Parent = MainFeaturesFrame
+CounterBaitToggle.BackgroundColor3 = Color3.fromRGB(48, 48, 48)
+CounterBaitToggle.BorderSizePixel = 0
+CounterBaitToggle.Position = UDim2.new(0.12, 0, 0.181, 0)
+CounterBaitToggle.Size = UDim2.new(0.075, 0, 0, 23)
+CounterBaitToggle.Text = ""
+UICorner:Clone().Parent = CounterBaitToggle
+
+local LEmoteToggle = Instance.new("TextButton")
+LEmoteToggle.Name = "LBut"
+LEmoteToggle.Parent = MainFeaturesFrame
+LEmoteToggle.BackgroundColor3 = Color3.fromRGB(48, 48, 48)
+LEmoteToggle.BorderSizePixel = 0
+LEmoteToggle.Position = UDim2.new(0.3, 0, 0.181, 0)
+LEmoteToggle.Size = UDim2.new(0.075, 0, 0, 23)
+LEmoteToggle.Text = ""
+UICorner:Clone().Parent = LEmoteToggle
+
+local BaitMessageTextBox = Instance.new("TextBox")
+BaitMessageTextBox.Name = "TextBox4"
+BaitMessageTextBox.Parent = MainFeaturesFrame
+BaitMessageTextBox.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+BaitMessageTextBox.BorderSizePixel = 0
+BaitMessageTextBox.Position = UDim2.new(0.42, 0, 0.19, 0)
+BaitMessageTextBox.Size = UDim2.new(0.25, 0, 0, 19)
+BaitMessageTextBox.Font = Enum.Font.Gotham
+BaitMessageTextBox.PlaceholderText = "Message after baiting"
+BaitMessageTextBox.Text = "Simon says counter"
+BaitMessageTextBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+BaitMessageTextBox.TextScaled = true
+UICorner:Clone().Parent = BaitMessageTextBox
+
+local CounterBaitLabel = Instance.new("TextLabel")
+CounterBaitLabel.Name = "Label"
+CounterBaitLabel.Parent = MainFeaturesFrame
+CounterBaitLabel.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+CounterBaitLabel.BorderSizePixel = 0
+CounterBaitLabel.Position = UDim2.new(0.145, 0, 0.115, 0)
+CounterBaitLabel.Size = UDim2.new(0.01, 0, 0, 1)
+CounterBaitLabel.Font = Enum.Font.Gotham
+CounterBaitLabel.Text = "Counter bait"
+CounterBaitLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+CounterBaitLabel.TextSize = 10
+
+local LEmoteLabel = Instance.new("TextLabel")
+LEmoteLabel.Name = "L"
+LEmoteLabel.Parent = MainFeaturesFrame
+LEmoteLabel.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+LEmoteLabel.BorderSizePixel = 0
+LEmoteLabel.Position = UDim2.new(0.348, 0, 0.115, 0)
+LEmoteLabel.Size = UDim2.new(0.01, 0, 0, 1)
+LEmoteLabel.Font = Enum.Font.Gotham
+LEmoteLabel.Text = "L emote"
+LEmoteLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+LEmoteLabel.TextSize = 10
+
+local DeathCounterNotifierToggle = Instance.new("TextButton")
+DeathCounterNotifierToggle.Name = "ToggleButton2"
+DeathCounterNotifierToggle.Parent = MainFeaturesFrame
+DeathCounterNotifierToggle.BackgroundColor3 = Color3.fromRGB(192, 192, 192)
+DeathCounterNotifierToggle.BorderSizePixel = 0
+DeathCounterNotifierToggle.Position = UDim2.new(0.12, 0, 0.745, 0)
+DeathCounterNotifierToggle.Size = UDim2.new(0.075, 0, 0, 23)
+DeathCounterNotifierToggle.Text = ""
+UICorner:Clone().Parent = DeathCounterNotifierToggle
+
+local DeathCounterNotifierLabel = Instance.new("TextLabel")
+DeathCounterNotifierLabel.Name = "Label"
+DeathCounterNotifierLabel.Parent = MainFeaturesFrame
+DeathCounterNotifierLabel.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+DeathCounterNotifierLabel.BorderSizePixel = 0
+DeathCounterNotifierLabel.Position = UDim2.new(0.14, 0, 0.66, 0)
+DeathCounterNotifierLabel.Size = UDim2.new(0.07, 0, 0, 1)
+DeathCounterNotifierLabel.Font = Enum.Font.Gotham
+DeathCounterNotifierLabel.Text = "Death counter notifer"
+DeathCounterNotifierLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+DeathCounterNotifierLabel.TextSize = 9
+
+local AutoCounterM1Label = Instance.new("TextLabel")
+AutoCounterM1Label.Name = "Label"
+AutoCounterM1Label.Parent = MainFeaturesFrame
+AutoCounterM1Label.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+AutoCounterM1Label.BorderSizePixel = 0
+AutoCounterM1Label.Position = UDim2.new(0.4, 0, 0.388, 0)
+AutoCounterM1Label.Size = UDim2.new(0.07, 0, 0, 1)
+AutoCounterM1Label.Font = Enum.Font.Gotham
+AutoCounterM1Label.Text = "Auto Counter M1"
+AutoCounterM1Label.TextColor3 = Color3.fromRGB(255, 255, 255)
+AutoCounterM1Label.TextSize = 9
+
+local AutoCounterM1Toggle = Instance.new("TextButton")
+AutoCounterM1Toggle.Name 
