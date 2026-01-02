@@ -1,10 +1,4 @@
--- Shrink Hide & Seek Ultimate Hub v3.0 - Ultra Optimized 2026 Edition
--- 🚀 Fully Client-Side | Anti-Lag | Auto-Cleanup | FPS Monitor | Keybinds
--- Features: Advanced ESP (Name/Dist/HP/Tracers), Aimbot, Shrink/Grow, Fly (Smooth), NoClip, Speed/Jump, God Mode, Invis, Fullbright,
--- Inf Jump, TP Nearest, Anti-AFK, Bring Player, Hide NameTag, Chams, Auto Farm (Client Visual), Seek Assist, Smart Hide Spots (Basic)
--- Optimized: Single Heartbeat Loop | Connection Pooling | Debounce | Task Library | Memory Cleanup | FPS Adaptive
--- GUI: Tabs (Hider/Seeker/Player/Visuals) | Draggable | Minimize | Themes | Made by zeroz560
--- Use: Executor (Synapse/Krnl/Fluxus) | LocalScript | No Bans (Client-Only)
+
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
