@@ -1,36 +1,142 @@
-# This is a basic workflow to help you get started with Actions
 
-name: CI
+local ValiantAimHacks = {
+    SilentAimEnabled = true,
+    FOV = 100,  -- FOV inicial
+    TargetPart = {"Head", "HumanoidRootPart", "UpperTorso", "Torso"},
+    HitChance = 100,
+    SelectedPart = nil,
+    BotsFolder = workspace:WaitForChild("CurrentBots", 15)
+}
+getgenv().ValiantAimHacks = ValiantAimHacks
 
-# Controls when the workflow will run
-on:
-  # Triggers the workflow on push or pull request events but only for the "main" branch
-  push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local Camera = workspace.CurrentCamera
+local LocalPlayer = Players.LocalPlayer
+local Mouse = LocalPlayer:GetMouse()
 
-  # Allows you to run this workflow manually from the Actions tab
-  workflow_dispatch:
 
-# A workflow run is made up of one or more jobs that can run sequentially or in parallel
-jobs:
-  # This workflow contains a single job called "build"
-  build:
-    # The type of runner that the job will run on
-    runs-on: ubuntu-latest
+pcall(function() for i,v in next, getconnections(game:GetService("ScriptContext").Error) do v:Disable() end end)
 
-    # Steps represent a sequence of tasks that will be executed as part of the job
-    steps:
-      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-      - uses: actions/checkout@v4
 
-      # Runs a single command using the runners shell
-      - name: Run a one-line script
-        run: echo Hello, world!
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "StefanukFOV"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 
-      # Runs a set of commands using the runners shell
-      - name: Run a multi-line script
-        run: |
-          echo Add other actions to build,
-          echo test, and deploy your project.
+local CircleFrame = Instance.new("Frame")
+CircleFrame.Size = UDim2.new(0, ValiantAimHacks.FOV*2, 0, ValiantAimHacks.FOV*2)
+CircleFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+CircleFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
+CircleFrame.BackgroundColor3 = Color3.fromRGB(255, 255, 0)  -- Amarillo OFF
+CircleFrame.BackgroundTransparency = 0.6
+CircleFrame.BorderSizePixel = 0
+CircleFrame.Parent = ScreenGui
+
+local UICorner = Instance.new("UICorner")
+UICorner.CornerRadius = UDim.new(1, 0)
+UICorner.Parent = CircleFrame
+)
+local function getClosestBotToCursor()
+    local closestPart = nil
+    local shortestDistance = math.huge
+    local screenCenter = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
+
+    for _, bot in pairs(ValiantAimHacks.BotsFolder:GetChildren()) do
+        if bot:IsA("Model") then
+            local humanoid = bot:FindFirstChildOfClass("Humanoid")
+            if humanoid and humanoid.Health > 0 then
+                for _, partName in ipairs(ValiantAimHacks.TargetPart) do
+                    local part = bot:FindFirstChild(partName)
+                    if part then
+                        local screenPos, onScreen = Camera:WorldToViewportPoint(part.Position)
+                        if onScreen then
+                            local dist = (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude
+                            if dist < shortestDistance and dist < ValiantAimHacks.FOV then
+                                shortestDistance = dist
+                                closestPart = part
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    ValiantAimHacks.SelectedPart = closestPart
+end
+
+
+task.spawn(function()
+    while ValiantAimHacks.BotsFolder do
+        if ValiantAimHacks.SilentAimEnabled then
+            getClosestBotToCursor()
+        end
+        task.wait(0.08)
+    end
+end)
+
+
+local mt = getrawmetatable(game)
+local oldNamecall = mt.__namecall
+local oldIndex = mt.__index
+setreadonly(mt, false)
+
+mt.__namecall = newcclosure(function(self, ...)
+    local args = {...}
+    local method = getnamecallmethod()
+
+    if ValiantAimHacks.SilentAimEnabled and ValiantAimHacks.SelectedPart and (method == "Raycast" or method:lower():find("findpartonray")) then
+        local origin = args[1]
+        if method == "Raycast" then
+            args[2] = (ValiantAimHacks.SelectedPart.Position - origin).Unit * args[2].Magnitude
+        else
+            local ray = args[1]
+            args[1] = Ray.new(ray.Origin, (ValiantAimHacks.SelectedPart.Position - ray.Origin).Unit * ray.Direction.Magnitude)
+        end
+        return oldNamecall(self, unpack(args))
+    end
+    return oldNamecall(self, ...)
+end)
+
+mt.__index = newcclosure(function(self, key)
+    if ValiantAimHacks.SilentAimEnabled and ValiantAimHacks.SelectedPart and self == Mouse and (key == "Hit" or key == "Target") then
+        return ValiantAimHacks.SelectedPart.CFrame
+    end
+    return oldIndex(self, key)
+end)
+
+setreadonly(mt, true)
+
+
+RunService.Heartbeat:Connect(function()
+    CircleFrame.Position = UDim2.new(0.5, -ValiantAimHacks.FOV, 0.5, -ValiantAimHacks.FOV)
+    CircleFrame.Size = UDim2.new(0, ValiantAimHacks.FOV*2, 0, ValiantAimHacks.FOV*2)
+    
+    if ValiantAimHacks.SilentAimEnabled then
+        if ValiantAimHacks.SelectedPart then
+            CircleFrame.BackgroundColor3 = Color3.fromRGB(0, 255, 0)  -- VERDE LOCKED
+            Mouse.Hit = CFrame.lookAt(Camera.CFrame.Position, ValiantAimHacks.SelectedPart.Position)
+        else
+            CircleFrame.BackgroundColor3 = Color3.fromRGB(255, 0, 0)  -- ROJO NO BOT
+        end
+    else
+        CircleFrame.BackgroundColor3 = Color3.fromRGB(255, 255, 0)  -- AMARILLO OFF
+    end
+end)
+
+-- Controles (Mobile/PC)
+UserInputService.InputBegan:Connect(function(input)
+    if input.KeyCode == Enum.KeyCode.Insert then
+        ValiantAimHacks.SilentAimEnabled = not ValiantAimHacks.SilentAimEnabled
+    elseif input.KeyCode == Enum.KeyCode.Q then
+        ValiantAimHacks.FOV = math.min(ValiantAimHacks.FOV + 20, 300)
+    elseif input.KeyCode == Enum.KeyCode.E then
+        ValiantAimHacks.FOV = math.max(ValiantAimHacks.FOV - 20, 40)
+    end
+end)
+
+Mouse.Button2Down:Connect(function()
+    ValiantAimHacks.SilentAimHacks = not ValiantAimHacks.SilentAimEnabled
+end)
