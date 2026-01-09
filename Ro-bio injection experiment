@@ -1,36 +1,83 @@
-# This is a basic workflow to help you get started with Actions
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
-name: CI
+local Window = Rayfield:CreateWindow({Name="Ro-bio injection experiment Tools",LoadingTitle="Ro-bio injection experiment Tools",LoadingSubtitle="for Ro-bio injection experiment",ConfigurationSaving={Enabled=true,FolderName="RobioTools",FileName="Config"},KeySystem=false})
 
-# Controls when the workflow will run
-on:
-  # Triggers the workflow on push or pull request events but only for the "main" branch
-  push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
+local PrincipalTab=Window:CreateTab("Principal",4483362458)
+local CreditosTab=Window:CreateTab("Credits Important",4483362458)
 
-  # Allows you to run this workflow manually from the Actions tab
-  workflow_dispatch:
+local player=game.Players.LocalPlayer
+local playerName=player.Name
+local playerUserId=player.UserId
 
-# A workflow run is made up of one or more jobs that can run sequentially or in parallel
-jobs:
-  # This workflow contains a single job called "build"
-  build:
-    # The type of runner that the job will run on
-    runs-on: ubuntu-latest
+local function findPlayerLab()
+local labs=workspace.Labs
+local attempts=0
+local maxAttempts=60
+local debugValues=""
 
-    # Steps represent a sequence of tasks that will be executed as part of the job
-    steps:
-      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-      - uses: actions/checkout@v4
+while attempts<maxAttempts do
+for i=1,12 do
+local labName=tostring(i)
+local lab=labs:FindFirstChild(labName)
+if lab then
+local owner=lab:FindFirstChild("Owner")
+if owner then
+local value=owner.Value
+debugValues=debugValues.."Lab "..labName..": "..tostring(value).."\n"
+if (owner:IsA("StringValue") and (value==playerName or string.find(tostring(value),playerName))) or (owner:IsA("IntValue") and value==playerUserId) or (owner:IsA("ObjectValue") and value==player) then
+Rayfield:Notify({Title="Lab detectada!",Content="Usando lab "..labName.." (Value: "..tostring(value)..")"})
+return lab,labName
+end
+else
+debugValues=debugValues.."Lab "..labName..": No Owner\n"
+end
+end
+end
+attempts=attempts+1
+wait(1)
+end
 
-      # Runs a single command using the runners shell
-      - name: Run a one-line script
-        run: echo Hello, world!
+Rayfield:Notify({Title="No lab encontrada",Content="Values de Owners:\n"..debugValues})
+return nil
+end
 
-      # Runs a set of commands using the runners shell
-      - name: Run a multi-line script
-        run: |
-          echo Add other actions to build,
-          echo test, and deploy your project.
+local function autoVirus()
+local myLab,labNumber=findPlayerLab()
+if not myLab then return end
+local character=player.Character or player.CharacterAdded:Wait()
+local hrp=character:WaitForChild("HumanoidRootPart")
+local firstPart=workspace.Displays.PassDisplay2:GetChildren()[10]
+if firstPart and firstPart:IsA("BasePart") then hrp.CFrame=firstPart.CFrame+Vector3.new(0,5,0) else Rayfield:Notify({Title="Error",Content="PassDisplay2 no encontrado"}) return end
+wait(10)
+local controlPart=myLab["Control Panel"].Build.MeshPart
+if controlPart then hrp.CFrame=controlPart.CFrame+Vector3.new(0,5,0) else Rayfield:Notify({Title="Error",Content="Control Panel no encontrado"}) return end
+local spawnButton=myLab["Control Panel"].Buttons.Spawn
+if spawnButton then game:GetService("ReplicatedStorage").RemoteEvents.ButtonClick:FireServer(spawnButton) else Rayfield:Notify({Title="Error",Content="Botón Spawn no encontrado"}) return end
+wait(0.7)  -- Cambiado a 0.7 segundos como pediste
+local finalPart=myLab["Cylinder.079_Cylinder.055"]
+if finalPart then hrp.CFrame=finalPart.CFrame+Vector3.new(0,5,0) end
+Rayfield:Notify({Title="Exito",Content="Auto Virus completado en lab "..labNumber})
+end
+
+PrincipalTab:CreateButton({Name="Auto virus",Callback=function() spawn(autoVirus) end})
+
+local function autoKill()
+local myLab=findPlayerLab()
+if myLab then game:GetService("ReplicatedStorage").RemoteEvents.ButtonClick:FireServer(myLab["Control Panel"].Buttons.Electrocute) end
+end
+
+PrincipalTab:CreateButton({Name="Auto kill",Callback=autoKill})
+
+local function aguantaVirus()
+local myLab=findPlayerLab()
+if myLab then game:GetService("ReplicatedStorage").RemoteEvents.ButtonClick:FireServer(myLab["Control Panel"].Buttons.Hold) end
+end
+
+PrincipalTab:CreateButton({Name="Aguanta Virus",Callback=aguantaVirus})
+
+CreditosTab:CreateParagraph({Title="Script made by",Content="zeroz560"})
+CreditosTab:CreateParagraph({Title="Youtube",Content="zeroz560"})
+CreditosTab:CreateParagraph({Title="TikTok",Content="zeroz560"})
+CreditosTab:CreateButton({Name="Cerrar GUI",Callback=function() Rayfield:Destroy() end})
+
+Rayfield:Notify({Title="Listo",Content="Script cargado. Último TP ahora espera solo 0.7s"})
