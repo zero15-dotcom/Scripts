@@ -1,36 +1,208 @@
-# This is a basic workflow to help you get started with Actions
 
-name: CI
 
-# Controls when the workflow will run
-on:
-  # Triggers the workflow on push or pull request events but only for the "main" branch
-  push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
-  # Allows you to run this workflow manually from the Actions tab
-  workflow_dispatch:
+local Window = Rayfield:CreateWindow({
+    Name = "Escapa del tsunami brainrot",
+    LoadingTitle = "Escapa del tsunami brainrot",
+    LoadingSubtitle = "Desarrollador de script en prueba,no te enojes",
+    ConfigurationSaving = {
+        Enabled = true,
+        FolderName = "Brainrot tsunami",
+        FileName = "Config"
+    },
+    KeySystem = false
+})
 
-# A workflow run is made up of one or more jobs that can run sequentially or in parallel
-jobs:
-  # This workflow contains a single job called "build"
-  build:
-    # The type of runner that the job will run on
-    runs-on: ubuntu-latest
+local MainTab = Window:CreateTab("Main", 4483362458)
+local CreditsTab = Window:CreateTab("CrÃ©ditos", 4483362458)
 
-    # Steps represent a sequence of tasks that will be executed as part of the job
-    steps:
-      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-      - uses: actions/checkout@v4
+local player = game.Players.LocalPlayer
 
-      # Runs a single command using the runners shell
-      - name: Run a one-line script
-        run: echo Hello, world!
 
-      # Runs a set of commands using the runners shell
-      - name: Run a multi-line script
-        run: |
-          echo Add other actions to build,
-          echo test, and deploy your project.
+local function tpToPart(part)
+    local success, partObj = pcall(function() return part end)
+    if not success or not partObj or not partObj:IsA("BasePart") then
+        Rayfield:Notify({Title = "Error TP", Content = "Part no encontrado", Duration = 4})
+        return false
+    end
+    
+    local char = player.Character or player.CharacterAdded:Wait()
+    local hrp = char:WaitForChild("HumanoidRootPart")
+    hrp.CFrame = partObj.CFrame * CFrame.new(0, 5, 0)
+    return true
+end
+
+
+MainTab:CreateButton({
+    Name = "Tp Zone Secret",
+    Callback = function()
+        spawn(function()
+            local mythical = workspace:FindFirstChild("Floors") and workspace.Floors:FindFirstChild("Mythical")
+            if tpToPart(mythical) then
+                wait(0.5)
+                local secret = workspace:FindFirstChild("Floors") and workspace.Floors:FindFirstChild("Secret")
+                if secret and secret:IsA("BasePart") then
+                    local char = player.Character or player.CharacterAdded:Wait()
+                    local hrp = char:WaitForChild("HumanoidRootPart")
+                    hrp.CFrame = secret.CFrame * CFrame.new(0, 5, 0)
+                    Rayfield:Notify({Title = "Tp Secret Completado!", Content = "Mythical â†’ Secret", Duration = 4})
+                else
+                    Rayfield:Notify({Title = "Error Secret", Content = "Floors.Secret no encontrado", Duration = 4})
+                end
+            end
+        end)
+    end
+})
+
+
+MainTab:CreateButton({
+    Name = "Auto Llevar",
+    Callback = function()
+        spawn(function()
+            local char = player.Character or player.CharacterAdded:Wait()
+            local hrp = char:WaitForChild("HumanoidRootPart")
+            local originalCFrame = hrp.CFrame  -- Guarda posiciÃ³n y rotaciÃ³n EXACTA
+            
+            
+            local mythical = workspace:FindFirstChild("Floors") and workspace.Floors:FindFirstChild("Mythical")
+            if mythical and mythical:IsA("BasePart") then
+                hrp.CFrame = mythical.CFrame * CFrame.new(0, 5, 0)
+            else
+                Rayfield:Notify({Title = "Error Mythical", Content = "Floors.Mythical no encontrado", Duration = 4})
+                return
+            end
+            
+            wait(0.6)
+            
+            
+            local spawn1 = workspace:FindFirstChild("SpawnLocation1")
+            if spawn1 and spawn1:IsA("BasePart") then
+                hrp.CFrame = spawn1.CFrame * CFrame.new(0, 5, 0)
+            else
+                Rayfield:Notify({Title = "Error Spawn1", Content = "SpawnLocation1 no encontrado", Duration = 4})
+                return
+            end
+            
+            wait(0.1) 
+            
+            
+            hrp.CFrame = originalCFrame
+            Rayfield:Notify({
+                Title = "Auto Llevar Completado",
+                Content = "Mythical â†’ SpawnLocation1 â†’ Vuelta a donde estabas",
+                Duration = 4
+            })
+        end)
+    end
+})
+
+
+MainTab:CreateButton({
+    Name = "Sell All",
+    Callback = function()
+        local success, err = pcall(function()
+            local remotes = game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunctions")
+            local sellAllRemote = remotes:WaitForChild("SellAll")
+            sellAllRemote:InvokeServer()
+        end)
+        
+        if success then
+            Rayfield:Notify({
+                Title = "Sell All",
+                Content = "Â¡Todo vendido exitosamente!",
+                Duration = 3
+            })
+        else
+            Rayfield:Notify({
+                Title = "Error Sell All",
+                Content = "No se pudo vender: " .. tostring(err),
+                Duration = 5
+            })
+        end
+    end
+})
+
+
+local upgrading = false
+MainTab:CreateButton({
+    Name = "Auto Upgrade ",
+    Callback = function()
+        if upgrading then
+            upgrading = false
+            Rayfield:Notify({Title = "Auto Upgrade", Content = "Detenido", Duration = 3})
+            return
+        end
+        
+        upgrading = true
+        Rayfield:Notify({Title = "Auto Upgrade", Content = "Iniciado", Duration = 4})
+        
+        spawn(function()
+            while upgrading do
+                pcall(function()
+                    local remotes = game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunctions")
+                    local upgradeRemote = remotes:WaitForChild("UpgradeBrainrot")
+                    for i = 1, 20 do
+                        if not upgrading then break end
+                        upgradeRemote:InvokeServer("Slot" .. i)
+                    end
+                end)
+                wait(0.1)
+            end
+        end)
+    end
+})
+
+
+local collecting = false
+MainTab:CreateButton({
+    Name = "Auto Collect Money ",
+    Callback = function()
+        if collecting then
+            collecting = false
+            Rayfield:Notify({Title = "Auto Collect", Content = "Detenido", Duration = 3})
+            return
+        end
+        
+        collecting = true
+        Rayfield:Notify({Title = "Auto Collect", Content = "Iniciado", Duration = 4})
+        
+        spawn(function()
+            while collecting do
+                pcall(function()
+                    local remotes = game:GetService("ReplicatedStorage"):WaitForChild("RemoteEvents")
+                    local collectRemote = remotes:WaitForChild("CollectMoney")
+                    for i = 1, 20 do
+                        if not collecting then break end
+                        collectRemote:FireServer("Slot" .. i)
+                    end
+                end)
+                wait(0.1)
+            end
+        end)
+    end
+})
+
+
+CreditsTab:CreateParagraph({
+    Title = "Creador del Script",
+    Content = "Youtube: zeroz560\nTiktok: @zeroz560"
+})
+
+CreditsTab:CreateParagraph({
+    Title = "Colaboradores",
+    Content = "Youtube: terror781\nTiktok: @terror5567"
+})
+
+CreditsTab:CreateButton({
+    Name = "Cerrar GUI",
+    Callback = function()
+        Rayfield:Destroy()
+    end
+})
+
+Rayfield:Notify({
+    Title = "script en desarrollo",
+    Content = "Disfrútalo ",
+    Duration = 8
+})
