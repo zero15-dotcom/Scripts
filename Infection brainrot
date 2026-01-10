@@ -1,36 +1,142 @@
-# This is a basic workflow to help you get started with Actions
+-- Infection Brainrot Tools - Rayfield GUI
+-- 2 Botones: Auto Salvar Survivors + Buscar Jugadores (Infector Follow)
 
-name: CI
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
-# Controls when the workflow will run
-on:
-  # Triggers the workflow on push or pull request events but only for the "main" branch
-  push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
+local Window = Rayfield:CreateWindow({
+    Name = "Infection Brainrot",
+    LoadingTitle = "Infection Script",
+    LoadingSubtitle = "Made by zeroz560",
+    ConfigurationSaving = {
+        Enabled = true,
+        FolderName = "InfectionBrainrot",
+        FileName = "Config"
+    },
+    KeySystem = false
+})
 
-  # Allows you to run this workflow manually from the Actions tab
-  workflow_dispatch:
+local MainTab = Window:CreateTab("Infection", 4483362458)
 
-# A workflow run is made up of one or more jobs that can run sequentially or in parallel
-jobs:
-  # This workflow contains a single job called "build"
-  build:
-    # The type of runner that the job will run on
-    runs-on: ubuntu-latest
+local player = game.Players.LocalPlayer
+local infecting = false
 
-    # Steps represent a sequence of tasks that will be executed as part of the job
-    steps:
-      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-      - uses: actions/checkout@v4
+-- FunciÃ³n TP segura
+local function tpToPart(part, offsetY)
+    offsetY = offsetY or 10
+    if not part or not part:IsA("BasePart") then
+        Rayfield:Notify({Title = "Error TP", Content = "Part no encontrado o invÃ¡lido", Duration = 4})
+        return false
+    end
+    
+    local char = player.Character
+    if not char then return false end
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return false end
+    
+    hrp.CFrame = part.CFrame + Vector3.new(0, offsetY, 0)
+    return true
+end
 
-      # Runs a single command using the runners shell
-      - name: Run a one-line script
-        run: echo Hello, world!
+-- BotÃ³n 1: Auto Salvar Survivors (TP a Mountains[1099])
+MainTab:CreateButton({
+    Name = "Auto Salvar (Survivors)",
+    Callback = function()
+        local success, err = pcall(function()
+            local mountains = workspace.GameContainer.Barn.Decors.Mountains
+            local children = mountains:GetChildren()
+            if #children >= 1099 then
+                local target = children[1099]
+                if tpToPart(target, 10) then
+                    Rayfield:Notify({
+                        Title = "Auto Salvar",
+                        Content = "TP a Mountains[1099] - Â¡Salva survivors!",
+                        Duration = 4
+                    })
+                end
+            else
+                Rayfield:Notify({
+                    Title = "Error",
+                    Content = "Mountains solo tiene " .. #children .. " hijos",
+                    Duration = 5
+                })
+            end
+        end)
+        
+        if not success then
+            Rayfield:Notify({Title = "Error", Content = tostring(err), Duration = 5})
+        end
+    end
+})
 
-      # Runs a set of commands using the runners shell
-      - name: Run a multi-line script
-        run: |
-          echo Add other actions to build,
-          echo test, and deploy your project.
+-- FunciÃ³n: Jugador mÃ¡s cerca (excluye local player)
+local function findClosestPlayer()
+    local char = player.Character
+    if not char then return nil end
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return nil end
+    
+    local closest = nil
+    local minDist = math.huge
+    
+    for _, plr in pairs(game.Players:GetPlayers()) do
+        if plr ~= player and plr.Character then
+            local targetHrp = plr.Character:FindFirstChild("HumanoidRootPart")
+            if targetHrp then
+                local dist = (hrp.Position - targetHrp.Position).Magnitude
+                if dist < minDist then
+                    minDist = dist
+                    closest = targetHrp
+                end
+            end
+        end
+    end
+    
+    return closest
+end
+
+-- BotÃ³n 2: Buscar Jugadores (Infector) - TP y sigue al mÃ¡s cerca
+MainTab:CreateButton({
+    Name = "Buscar Jugadores (Infector)",
+    Callback = function()
+        if infecting then
+            infecting = false
+            Rayfield:Notify({Title = "Infector", Content = "Detenido", Duration = 3})
+            return
+        end
+        
+        infecting = true
+        Rayfield:Notify({
+            Title = "Infector Activado",
+            Content = "Siguiendo al jugador mÃ¡s cerca (arriba)",
+            Duration = 4
+        })
+        
+        spawn(function()
+            while infecting do
+                local targetHrp = findClosestPlayer()
+                if targetHrp then
+                    local char = player.Character
+                    if char then
+                        local hrp = char:FindFirstChild("HumanoidRootPart")
+                        if hrp then
+                            hrp.CFrame = targetHrp.CFrame + Vector3.new(0, 10, 0)
+                        end
+                    end
+                else
+                    Rayfield:Notify({
+                        Title = "Sin Jugadores",
+                        Content = "No hay otros jugadores cerca",
+                        Duration = 3
+                    })
+                end
+                wait(0.1)  -- Seguimiento suave
+            end
+        end)
+    end
+})
+
+Rayfield:Notify({
+    Title = "Infection Brainrot Cargado",
+    Content = "Script listo",
+    Duration = 8
+})
